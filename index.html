@@ -535,6 +535,7 @@
       display:flex;
       flex-direction:column;
       min-height: 420px;
+      scroll-margin-top: 12px;
     }
     /* Price cards: match checklist card border/glow */
     #prices .card{
@@ -621,6 +622,7 @@
       border-radius: 18px;
       background: rgba(255,255,255,.70);
       padding: 10px 12px;
+      overflow-anchor: none;
     }
     .row{
       display:grid;
@@ -1605,7 +1607,7 @@
                 </div>
               <div class="row" role="listitem">
                 <div class="name"><span class="main">Окна и рамы</span></div>
-                <div class="val">2€ за м²</div>
+                <div class="val">2 € за м²</div>
               </div>
               <div class="row" role="listitem">
                 <div class="name"><span class="main">Эко-уборка пароочистителем без использования химии</span></div>
@@ -1690,7 +1692,7 @@
                 </div>
               <div class="row" role="listitem">
                 <div class="name"><span class="main">Окна и рамы</span></div>
-                <div class="val">2€ за м²</div>
+                <div class="val">2 € за м²</div>
               </div>
               <div class="row" role="listitem">
                 <div class="name"><span class="main">Эко-уборка пароочистителем без использования химии</span></div>
@@ -2575,6 +2577,7 @@
       extrasToggle.addEventListener("click", () => {
         const isOpen = extrasToggle.getAttribute("aria-expanded") === "true";
         const isDesktop = window.matchMedia("(min-width: 900px)").matches;
+        const extrasCard = extrasToggle.closest(".card");
         if (!isOpen && isDesktop) {
           extrasToggles.forEach((btn) => {
             if (btn === extrasToggle) return;
@@ -2615,14 +2618,21 @@
             extrasContent.setAttribute("aria-hidden", "true");
           }, 200);
         }
-        if (!isOpen && window.matchMedia("(max-width: 899px)").matches) {
-          setTimeout(() => {
-            const list = extrasToggle.closest(".card")?.querySelector(".list");
-            const firstRow = list?.querySelector(".row");
-            const rect = (firstRow || extrasContent).getBoundingClientRect();
-            const target = rect.top + window.scrollY - 12;
-            window.scrollTo({top: Math.max(0, target), behavior: "smooth"});
-          }, 0);
+        if (!isOpen) {
+          if (isDesktop) {
+            const anchor = extrasCard || document.getElementById("prices");
+            if (anchor) {
+              setTimeout(() => {
+                anchor.scrollIntoView({behavior: "smooth", block: "start"});
+              }, 0);
+            }
+          } else {
+            setTimeout(() => {
+              const rect = extrasContent.getBoundingClientRect();
+              const target = rect.bottom + window.scrollY - window.innerHeight + 12;
+              window.scrollTo({top: Math.max(0, target), behavior: "smooth"});
+            }, 0);
+          }
         }
       });
     });
