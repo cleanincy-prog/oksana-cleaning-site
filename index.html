@@ -712,6 +712,38 @@
       width: 100%;
       margin-top: 10px;
     }
+    @media (max-width: 899px){
+      body.extras-fixed-open{
+        padding-bottom: calc(86px + env(safe-area-inset-bottom));
+      }
+      .card.extras-mobile-open .list{
+        position: relative;
+        overflow: hidden;
+      }
+      .card.extras-mobile-open .extras-content{
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 3;
+        background: rgba(255,255,255,0.97);
+        border-top: 1px solid rgba(14,165,233,0.22);
+        box-shadow: 0 -16px 28px rgba(14,165,233,0.16);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+      .extras-toggle.is-fixed-mobile{
+        position: fixed;
+        left: 12px;
+        right: 12px;
+        bottom: calc(8px + env(safe-area-inset-bottom));
+        z-index: 1001;
+        width: auto;
+        margin: 0;
+        border-radius: 14px;
+        box-shadow: 0 18px 40px rgba(14,165,233,0.28);
+      }
+    }
 
     .card .actions{
       display:flex;
@@ -2570,71 +2602,119 @@
 
     // Extras (General Cleaning)
     const extrasToggles = Array.from(document.querySelectorAll(".extras-toggle"));
+    const isMobileExtras = () => window.matchMedia("(max-width: 899px)").matches;
+
+    const findBedroomAnchorRow = (card) => {
+      if (!card) return null;
+      const labels = Array.from(card.querySelectorAll(".list .row .name .main"));
+      const marker = labels.find((el) => /1\s*спальня/i.test(el.textContent || ""));
+      return marker ? marker.closest(".row") : null;
+    };
+
+    const resetMobileExtrasDock = () => {
+      document.body.classList.remove("extras-fixed-open");
+      extrasToggles.forEach((btn) => btn.classList.remove("is-fixed-mobile"));
+      document.querySelectorAll(".card.extras-mobile-open").forEach((card) => {
+        card.classList.remove("extras-mobile-open");
+      });
+    };
+
+    const closeExtrasNow = (btn) => {
+      const id = btn.getAttribute("aria-controls");
+      const content = id ? document.getElementById(id) : null;
+      btn.setAttribute("aria-expanded", "false");
+      btn.dataset.state = "closed";
+      btn.textContent = "Дополнительные услуги";
+      btn.classList.remove("is-fixed-mobile");
+      const card = btn.closest(".card");
+      if (card) card.classList.remove("extras-mobile-open");
+      if (content) {
+        content.classList.remove("is-open");
+        content.style.height = "0px";
+        content.style.opacity = "0";
+        content.setAttribute("aria-hidden", "true");
+      }
+    };
+
     extrasToggles.forEach((extrasToggle) => {
       const targetId = extrasToggle.getAttribute("aria-controls");
       const extrasContent = targetId ? document.getElementById(targetId) : null;
       if (!extrasContent) return;
       extrasToggle.addEventListener("click", () => {
         const isOpen = extrasToggle.getAttribute("aria-expanded") === "true";
-        const isDesktop = window.matchMedia("(min-width: 900px)").matches;
+        const isMobile = isMobileExtras();
         const extrasCard = extrasToggle.closest(".card");
-        if (!isOpen && isDesktop) {
+        const extrasList = extrasContent.closest(".list");
+        const bedroomAnchor = findBedroomAnchorRow(extrasCard);
+
+        if (!isOpen) {
           extrasToggles.forEach((btn) => {
             if (btn === extrasToggle) return;
-            const id = btn.getAttribute("aria-controls");
-            const content = id ? document.getElementById(id) : null;
-            btn.setAttribute("aria-expanded", "false");
-            btn.dataset.state = "closed";
-            btn.textContent = "Дополнительные услуги";
-            if (content) {
-              content.classList.remove("is-open");
-              content.style.height = "0px";
-              content.style.opacity = "0";
-              content.setAttribute("aria-hidden", "true");
-            }
+            closeExtrasNow(btn);
           });
-        }
-        const prevHeight = extrasContent.getBoundingClientRect().height;
-        extrasToggle.setAttribute("aria-expanded", String(!isOpen));
-        extrasToggle.dataset.state = isOpen ? "closed" : "open";
-        extrasToggle.textContent = isOpen ? "Дополнительные услуги" : "Свернуть дополнительные услуги";
-        if (!isOpen) {
+
+          if (isMobile) {
+            resetMobileExtrasDock();
+            extrasToggle.classList.add("is-fixed-mobile");
+            if (extrasCard) extrasCard.classList.add("extras-mobile-open");
+            document.body.classList.add("extras-fixed-open");
+          } else {
+            resetMobileExtrasDock();
+          }
+
+          extrasToggle.setAttribute("aria-expanded", "true");
+          extrasToggle.dataset.state = "open";
+          extrasToggle.textContent = "Свернуть дополнительные услуги";
           extrasContent.setAttribute("aria-hidden", "false");
-          extrasContent.style.height = `${prevHeight}px`;
+          extrasContent.style.height = "0px";
           extrasContent.classList.add("is-open");
           requestAnimationFrame(() => {
             const fullHeight = extrasContent.scrollHeight;
-            extrasContent.style.height = `${fullHeight}px`;
+            let targetHeight = fullHeight;
+            if (isMobile && extrasList && bedroomAnchor) {
+              const listRect = extrasList.getBoundingClientRect();
+              const rowRect = bedroomAnchor.getBoundingClientRect();
+              const fromBedroomToBottom = Math.max(0, Math.round(listRect.bottom - rowRect.top));
+              if (fromBedroomToBottom > 0) {
+                targetHeight = Math.min(fullHeight, fromBedroomToBottom);
+              }
+            }
+            extrasContent.style.height = `${targetHeight}px`;
             extrasContent.style.opacity = "1";
           });
-        } else {
-          extrasContent.style.height = `${prevHeight}px`;
-          requestAnimationFrame(() => {
-            extrasContent.style.height = "0px";
-            extrasContent.style.opacity = "0";
-          });
-          setTimeout(() => {
-            extrasContent.classList.remove("is-open");
-            extrasContent.setAttribute("aria-hidden", "true");
-          }, 200);
-        }
-        if (!isOpen) {
-          if (isDesktop) {
-            const anchor = extrasCard || document.getElementById("prices");
-            if (anchor) {
-              setTimeout(() => {
-                anchor.scrollIntoView({behavior: "smooth", block: "start"});
-              }, 0);
-            }
-          } else {
+
+          const openAnchor = isMobile ? (bedroomAnchor || extrasCard || document.getElementById("prices")) : (extrasCard || document.getElementById("prices"));
+          if (openAnchor) {
             setTimeout(() => {
-              const rect = extrasContent.getBoundingClientRect();
-              const target = rect.bottom + window.scrollY - window.innerHeight + 12;
-              window.scrollTo({top: Math.max(0, target), behavior: "smooth"});
+              openAnchor.scrollIntoView({behavior: "smooth", block: "start"});
             }, 0);
           }
+          return;
         }
+
+        const prevHeight = extrasContent.getBoundingClientRect().height;
+        extrasToggle.setAttribute("aria-expanded", "false");
+        extrasToggle.dataset.state = "closed";
+        extrasToggle.textContent = "Дополнительные услуги";
+        extrasContent.style.height = `${prevHeight}px`;
+        requestAnimationFrame(() => {
+          extrasContent.style.height = "0px";
+          extrasContent.style.opacity = "0";
+        });
+        setTimeout(() => {
+          extrasContent.classList.remove("is-open");
+          extrasContent.setAttribute("aria-hidden", "true");
+        }, 200);
+        extrasToggle.classList.remove("is-fixed-mobile");
+        if (extrasCard) extrasCard.classList.remove("extras-mobile-open");
+        document.body.classList.remove("extras-fixed-open");
       });
+    });
+
+    window.addEventListener("resize", () => {
+      if (!isMobileExtras()) {
+        resetMobileExtrasDock();
+      }
     });
 
     grid.addEventListener("click", (event) => {
